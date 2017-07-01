@@ -26,6 +26,7 @@
             var listener = new TcpListener(IPAddress.Any, port);
 
             InfoHandler?.Invoke(this, $"Start listening for connections on port: {port}.");
+            InfoHandler?.Invoke(this, $"Forwarding requests to: \"{this.url.ToString()}\".");
             listener.Start();
 
             // Keep accepting clients forever...
