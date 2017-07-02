@@ -26,7 +26,7 @@
             var listener = new TcpListener(IPAddress.Any, port);
 
             InfoHandler?.Invoke(this, $"Start listening for connections on port: {port}.");
-            InfoHandler?.Invoke(this, $"Forwarding requests to: \"{this.url.ToString()}\".");
+            InfoHandler?.Invoke(this, $"Forwarding requests to: \"{this.url.ToString()}\" (port: {this.url.Port}).");
             listener.Start();
 
             // Keep accepting clients forever...
@@ -39,6 +39,7 @@
                     {
                         HandleClient(client);
                     }
+                    InfoHandler?.Invoke(this, "Connection closed.");
                 }
                 catch (Exception e)
                 {
@@ -56,6 +57,13 @@
             var webRequest = new WebRequest(header);
 
             int headerEnd = webRequest.GetHeaderLength();
+
+            if(headerEnd == -1)
+            {
+                InfoHandler?.Invoke(this, "Client connected but no header found.");
+
+                return;
+            }
 
             int contentLength = webRequest.GetContentLength();
 

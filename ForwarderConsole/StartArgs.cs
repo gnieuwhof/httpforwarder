@@ -34,13 +34,21 @@
             int port;
             bool portSuccess = this.GetPortFromArgs(this.args, out port);
 
-            Uri url;
-            bool urlSuccess = this.GetUrlFromArgs(this.args, out url);
+            if(portSuccess)
+            {
+                Uri url;
+                bool urlSuccess = this.GetUrlFromArgs(this.args, out url);
 
-            this.Port = port;
-            this.URL = url;
+                if(urlSuccess)
+                {
+                    this.Port = port;
+                    this.URL = url;
 
-            return (portSuccess && urlSuccess);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool GetPortFromArgs(string[] args, out int result)
