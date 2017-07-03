@@ -37,6 +37,7 @@
                     InfoHandler?.Invoke(this, "Waiting for client to connect.");
                     using (TcpClient client = listener.AcceptTcpClient())
                     {
+                        InfoHandler?.Invoke(this, $"Client connected ({client.Client.RemoteEndPoint}).");
                         HandleClient(client);
                     }
                     InfoHandler?.Invoke(this, "Connection closed.");
