@@ -85,5 +85,24 @@
 
             this.Bytes = result;
         }
+
+        public void ReplaceConnection(string connection)
+        {
+            if (connection == null)
+                throw new ArgumentNullException(nameof(connection));
+
+            int hostStart = this.Bytes.GetEndIndex("Connection: ") + 1;
+            int hostEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', hostStart);
+
+            byte[] server = Encoding.ASCII.GetBytes(connection);
+
+            byte[] result = new byte[hostStart + server.Length + this.Bytes.Length - hostEnd];
+
+            Array.Copy(this.Bytes, result, hostStart);
+            Array.Copy(server, 0, result, hostStart, server.Length);
+            Array.Copy(this.Bytes, hostEnd, result, hostStart + server.Length, this.Bytes.Length - hostEnd);
+
+            this.Bytes = result;
+        }
     }
 }

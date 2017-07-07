@@ -80,6 +80,7 @@
             }
 
             webRequest.ReplaceHost(this.url.Host);
+            webRequest.ReplaceConnection("close");
 
             RequestHandler?.Invoke(this, webRequest.Bytes);
 
@@ -105,8 +106,16 @@
                 sslStream.AuthenticateAsClient(this.url.Host);
                 stream = sslStream;
             }
+            int byteCount = buffer.Length;
+            int offset = 0;
 
-            stream.Write(buffer, 0, buffer.Length);
+            while (byteCount > 0)
+            {
+                int length = Math.Min(byteCount, client.ReceiveBufferSize);
+                stream.Write(buffer, offset, length);
+                offset += client.ReceiveBufferSize;
+                byteCount -= length;
+            }
 
             response = stream.ReadFromStream(client.ReceiveBufferSize);
 
