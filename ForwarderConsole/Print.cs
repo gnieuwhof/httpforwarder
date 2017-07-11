@@ -28,6 +28,9 @@
         {
             Console.ForegroundColor = color;
 
+            // Replace the BELL character.
+            message = message.Replace('\a', 'B');
+
             Console.WriteLine(message);
         }
 
