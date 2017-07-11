@@ -6,6 +6,7 @@
     using System.Net;
     using System.Net.Security;
     using System.Net.Sockets;
+    using System.Text;
 
     public class Forwarder
     {
@@ -85,9 +86,19 @@
             RequestHandler?.Invoke(this, webRequest.Bytes);
 
             byte[] serverResponse = SendToServer(webRequest.Bytes);
+            
+            int byteCount = serverResponse.Length;
+            int offset = 0;
 
-            netStream.Write(serverResponse, 0, serverResponse.Length);
-            netStream.Flush();
+            while (byteCount > 0)
+            {
+                int length = Math.Min(byteCount, client.ReceiveBufferSize);
+                netStream.Write(serverResponse, offset, length);
+                offset += client.ReceiveBufferSize;
+                byteCount -= length;
+            }
+
+            ;
         }
 
         private byte[] SendToServer(byte[] buffer)
@@ -119,9 +130,28 @@
 
             response = stream.ReadFromStream(client.ReceiveBufferSize);
 
-            ResponseHandler?.Invoke(this, response);
+            var webResponse = new WebResponse(response);
 
-            return response;
+            int headerEnd = webResponse.GetHeaderLength();
+
+            if(headerEnd != -1)
+            {
+                int contentLength = webResponse.GetContentLength();
+                int totalBytes = contentLength + headerEnd + 1;
+
+                if (response.Length < totalBytes)
+                {
+                    do
+                    {
+                        webResponse.AddBytes(stream.ReadFromStream(client.ReceiveBufferSize));
+                    }
+                    while (webResponse.Bytes.Length < totalBytes);
+                }
+            }
+
+            ResponseHandler?.Invoke(this, webResponse.Bytes);
+
+            return webResponse.Bytes;
         }
     }
 }
