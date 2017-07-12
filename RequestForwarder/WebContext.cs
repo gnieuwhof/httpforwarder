@@ -3,26 +3,27 @@
     using System;
     using System.Text;
 
-    public class WebResponse
+    public class WebContext
     {
-        public WebResponse(byte[] header)
+        public WebContext(byte[] firstBatch)
         {
-            if (header == null)
-                throw new ArgumentNullException(nameof(header));
+            if (firstBatch == null)
+                throw new ArgumentNullException(nameof(firstBatch));
 
-            this.Bytes = header;
+            this.Bytes = firstBatch;
         }
 
 
         public byte[] Bytes
         {
             get;
-            private set;
+            protected set;
         }
 
 
         public int GetHeaderLength()
         {
+            // The header end is the first empty line (CRLF CRLF).
             return this.Bytes.GetEndIndex("\r\n\r\n");
         }
 
@@ -59,12 +60,7 @@
             if (bytes == null)
                 throw new ArgumentNullException(nameof(bytes));
 
-            var temp = new byte[this.Bytes.Length + bytes.Length];
-
-            Array.Copy(this.Bytes, temp, this.Bytes.Length);
-            Array.Copy(bytes, 0, temp, this.Bytes.Length, bytes.Length);
-
-            this.Bytes = temp;
+            this.Bytes = this.Bytes.Append(bytes);
         }
     }
 }

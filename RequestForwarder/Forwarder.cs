@@ -6,7 +6,6 @@
     using System.Net;
     using System.Net.Security;
     using System.Net.Sockets;
-    using System.Text;
 
     public class Forwarder
     {
@@ -60,7 +59,7 @@
 
             int headerEnd = webRequest.GetHeaderLength();
 
-            if(headerEnd == -1)
+            if (headerEnd == -1)
             {
                 InfoHandler?.Invoke(this, "Client connected but no header found.");
 
@@ -86,7 +85,7 @@
             RequestHandler?.Invoke(this, webRequest.Bytes);
 
             byte[] serverResponse = SendToServer(webRequest.Bytes);
-            
+
             int byteCount = serverResponse.Length;
             int offset = 0;
 
@@ -130,11 +129,11 @@
 
             response = stream.ReadFromStream(client.ReceiveBufferSize);
 
-            var webResponse = new WebResponse(response);
+            var webResponse = new WebContext(response);
 
             int headerEnd = webResponse.GetHeaderLength();
 
-            if(headerEnd != -1)
+            if (headerEnd != -1)
             {
                 int contentLength = webResponse.GetContentLength();
                 int totalBytes = contentLength + headerEnd + 1;

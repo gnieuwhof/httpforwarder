@@ -33,8 +33,7 @@
 
             Console.WriteLine(message);
         }
-
-
+        
         private static void InternalPrint(string header, string message, ConsoleColor color)
         {
             string txt =

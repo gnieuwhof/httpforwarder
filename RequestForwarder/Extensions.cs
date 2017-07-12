@@ -82,5 +82,33 @@
 
             return -1;
         }
+
+        public static byte[] Overwrite(this byte[] bytes, int start, int length, byte[] newBytes)
+        {
+            if (bytes == null)
+                throw new ArgumentNullException(nameof(bytes));
+            if (newBytes == null)
+                throw new ArgumentNullException(nameof(newBytes));
+
+            byte[] result = new byte[bytes.Length - length + newBytes.Length];
+
+            Array.Copy(bytes, result, start);
+            Array.Copy(newBytes, 0, result, start, newBytes.Length);
+            Array.Copy(bytes, start + length, result, start + newBytes.Length, bytes.Length - (start + length));
+
+            return result;
+        }
+
+        public static byte[] Append(this byte[] bytes, byte[] values)
+        {
+            if (bytes == null)
+                throw new ArgumentNullException(nameof(bytes));
+            if (values == null)
+                throw new ArgumentNullException(nameof(values));
+
+            // We overwrite 0 bytes starting from bytes.Length
+            // So, we are really only appending.
+            return bytes.Overwrite(bytes.Length, 0, values);
+        }
     }
 }
