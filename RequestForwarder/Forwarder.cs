@@ -67,16 +67,17 @@
             }
 
             int contentLength = webRequest.GetContentLength();
+            int totalBytes = contentLength + headerEnd + 1;
 
-            if ((header.Length == headerEnd + 1) && (contentLength > 0))
+            if(webRequest.Bytes.Length < totalBytes)
             {
                 // We only have the header but there is still content to get.
                 do
                 {
-                    var content = netStream.ReadFromStream(client.ReceiveBufferSize, contentLength);
+                    byte[] content = netStream.ReadFromStream(client.ReceiveBufferSize, contentLength);
                     webRequest.AddBytes(content);
                 }
-                while ((contentLength -= client.ReceiveBufferSize) > 0);
+                while (webRequest.Bytes.Length < totalBytes);
             }
 
             webRequest.ReplaceHost(this.url.Host);
@@ -96,8 +97,6 @@
                 offset += client.ReceiveBufferSize;
                 byteCount -= length;
             }
-
-            ;
         }
 
         private byte[] SendToServer(byte[] buffer)
