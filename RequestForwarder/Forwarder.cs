@@ -38,7 +38,7 @@
                     using (TcpClient client = listener.AcceptTcpClient())
                     {
                         InfoHandler?.Invoke(this, $"Client connected ({client.Client.RemoteEndPoint}).");
-                        HandleClient(client);
+                        HandleClient2(client);
                     }
                     InfoHandler?.Invoke(this, "Connection closed.");
                 }
@@ -49,35 +49,94 @@
             }
         }
 
-        private void HandleClient(TcpClient client)
+        //private void HandleClient(TcpClient client)
+        //{
+        //    NetworkStream netStream = client.GetStream();
+
+        //    byte[] header = netStream.ReadFromStream(client.ReceiveBufferSize);
+
+        //    var webRequest = new WebRequest(header);
+
+        //    int headerEnd = webRequest.GetHeaderLength();
+
+        //    if (headerEnd == -1)
+        //    {
+        //        InfoHandler?.Invoke(this, "Client connected but no header found.");
+
+        //        return;
+        //    }
+
+        //    int contentLength = webRequest.GetContentLength();
+        //    int totalBytes = contentLength + headerEnd + 1;
+
+        //    if(webRequest.Bytes.Length < totalBytes)
+        //    {
+        //        // We only have the header but there is still content to get.
+        //        do
+        //        {
+        //            byte[] content = netStream.ReadFromStream(client.ReceiveBufferSize, contentLength);
+        //            webRequest.AddBytes(content);
+        //        }
+        //        while (webRequest.Bytes.Length < totalBytes);
+        //    }
+
+        //    webRequest.ReplaceHost(this.url.Host);
+        //    webRequest.ReplaceConnection("close");
+
+        //    RequestHandler?.Invoke(this, webRequest.Bytes);
+
+        //    byte[] serverResponse = SendToServer(webRequest.Bytes);
+
+        //    int byteCount = serverResponse.Length;
+        //    int offset = 0;
+
+        //    while (byteCount > 0)
+        //    {
+        //        int length = Math.Min(byteCount, client.ReceiveBufferSize);
+        //        netStream.Write(serverResponse, offset, length);
+        //        offset += client.ReceiveBufferSize;
+        //        byteCount -= length;
+        //    }
+        //}
+
+        private void HandleClient2(TcpClient client)
         {
             NetworkStream netStream = client.GetStream();
 
-            byte[] header = netStream.ReadFromStream(client.ReceiveBufferSize);
+            WebRequest webRequest = null;
 
-            var webRequest = new WebRequest(header);
-
-            int headerEnd = webRequest.GetHeaderLength();
-
-            if (headerEnd == -1)
+            if (!TryGetHeader(client, netStream, out webRequest))
             {
                 InfoHandler?.Invoke(this, "Client connected but no header found.");
 
                 return;
             }
 
-            int contentLength = webRequest.GetContentLength();
-            int totalBytes = contentLength + headerEnd + 1;
-
-            if(webRequest.Bytes.Length < totalBytes)
+            string transferEncoding = webRequest.GetTransferEncoding();
+            int byteCount;
+            if (transferEncoding?.Contains("chunked") == true)
             {
-                // We only have the header but there is still content to get.
-                do
+                // Get chunks
+            }
+            else
+            {
+                int contentLength = webRequest.GetContentLength();
+                if (contentLength != -1)
                 {
-                    byte[] content = netStream.ReadFromStream(client.ReceiveBufferSize, contentLength);
-                    webRequest.AddBytes(content);
+                    byteCount = webRequest.GetHeaderLength() + 1 + contentLength;
+                    // Keep reading unit byteCount
+                    int bufferSize = client.ReceiveBufferSize;
+                    while (byteCount > webRequest.Bytes.Length)
+                    {
+                        var buffer = new byte[bufferSize];
+                        int count = netStream.Read(buffer, 0, bufferSize);
+
+                        var requestPart = new byte[count];
+                        Array.Copy(buffer, requestPart, count);
+
+                        webRequest.AddBytes(requestPart);
+                    }
                 }
-                while (webRequest.Bytes.Length < totalBytes);
             }
 
             webRequest.ReplaceHost(this.url.Host);
@@ -87,7 +146,7 @@
 
             byte[] serverResponse = SendToServer(webRequest.Bytes);
 
-            int byteCount = serverResponse.Length;
+            byteCount = serverResponse.Length;
             int offset = 0;
 
             while (byteCount > 0)
@@ -150,6 +209,41 @@
             ResponseHandler?.Invoke(this, webResponse.Bytes);
 
             return webResponse.Bytes;
+        }
+        
+        private bool TryGetHeader(TcpClient client, NetworkStream netStream, out WebRequest result)
+        {
+            result = null;
+            int bufferSize = client.ReceiveBufferSize;
+
+            for (;;)
+            {
+                var buffer = new byte[bufferSize];
+                int count = netStream.Read(buffer, 0, bufferSize);
+                
+                if (count == 0)
+                {
+                    return false;
+                }
+
+                var received = new byte[count];
+                Array.Copy(buffer, received, count);
+
+                if (result == null)
+                {
+                    result = new WebRequest(received);
+                }
+                else
+                {
+                    result.AddBytes(received);
+                }
+
+                if (result.GetHeaderLength() != -1)
+                {
+                    // Header received.
+                    return true;
+                }
+            }
         }
     }
 }

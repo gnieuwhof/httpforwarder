@@ -20,6 +20,16 @@
             protected set;
         }
 
+#if DEBUG
+        public string Content
+        {
+            get
+            {
+                return Encoding.ASCII.GetString(this.Bytes);
+            }
+        }
+#endif
+
 
         public int GetHeaderLength()
         {
@@ -29,23 +39,16 @@
 
         public int GetContentLength()
         {
-            int contentLengthStart = this.Bytes.GetEndIndex("Content-Length: ");
+            byte[] contentLengthBytes = GetHeaderValue("Content-Length");
 
-            if (contentLengthStart == -1)
+            if (contentLengthBytes.Length == 0)
             {
-                // There is no Content-Length found.
+                // Content-Length not found.
                 return -1;
             }
 
-            // At this point the index points to the space after the double colon so, increase.
-            ++contentLengthStart;
-
-            int contentLengthEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', contentLengthStart);
-            int contentLengthByteCount = contentLengthEnd - contentLengthStart;
-
-            string contentLengthString = Encoding.ASCII.GetString(
-                this.Bytes, contentLengthStart, contentLengthByteCount);
-
+            string contentLengthString = Encoding.ASCII.GetString(contentLengthBytes);
+            
             int result;
             if (int.TryParse(contentLengthString, out result))
             {
@@ -53,6 +56,41 @@
             }
 
             return -1;
+        }
+
+        public string GetTransferEncoding()
+        {
+            byte[] transferEncodingBytes = this.GetHeaderValue("Transfer-Encoding");
+
+            string result = Encoding.ASCII.GetString(transferEncodingBytes);
+
+            return result;
+        }
+
+        private byte[] GetHeaderValue(string header)
+        {
+            header = header.Trim(new[] { ':', ' ' });
+            header += ": ";
+
+            int headerValueStart = this.Bytes.GetEndIndex(header);
+
+            if(headerValueStart == -1)
+            {
+                // Header not found.
+                return new byte[0];
+            }
+
+            // At this point the index points to the space after the double colon so, increase.
+            ++headerValueStart;
+
+            int headerValueEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', headerValueStart);
+            int headerValueLength = (headerValueEnd - headerValueStart);
+
+            byte[] result = new byte[headerValueLength];
+
+            Array.Copy(this.Bytes, headerValueStart, result, 0, headerValueLength);
+
+            return result;
         }
 
         public void AddBytes(byte[] bytes)
