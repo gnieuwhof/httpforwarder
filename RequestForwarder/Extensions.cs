@@ -38,7 +38,7 @@
             return requestBuffer.ToArray();
         }
 
-        public static int GetEndIndex(this byte[] haystack, string needle)
+        public static int GetEndIndex(this byte[] haystack, string needle, int startIndex = 0)
         {
             if (haystack == null)
                 throw new ArgumentNullException(nameof(haystack));
@@ -47,10 +47,10 @@
 
             byte[] needleBytes = Encoding.ASCII.GetBytes(needle);
 
-            return haystack.GetEndIndex(needleBytes);
+            return haystack.GetEndIndex(needleBytes, startIndex);
         }
 
-        public static int GetEndIndex(this byte[] haystack, byte[] needle)
+        public static int GetEndIndex(this byte[] haystack, byte[] needle, int startIndex = 0)
         {
             if (needle == null)
                 throw new ArgumentNullException(nameof(needle));
@@ -60,7 +60,7 @@
             if (needle.Length <= haystack.Length)
             {
                 int needleIndex = 0;
-                for (int i = 0; i < haystack.Length; ++i)
+                for (int i = startIndex; i < haystack.Length; ++i)
                 {
                     if (needle[needleIndex] == haystack[i])
                     {

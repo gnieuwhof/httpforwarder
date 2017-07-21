@@ -30,7 +30,7 @@
         }
 #endif
 
-
+        
         public int GetHeaderLength()
         {
             // The header end is the first empty line (CRLF CRLF).
@@ -99,6 +99,52 @@
                 throw new ArgumentNullException(nameof(bytes));
 
             this.Bytes = this.Bytes.Append(bytes);
+        }
+            
+        public byte[] GetChunkSizeBytes(int position)
+        {
+            int endPos = Array.IndexOf<byte>(this.Bytes, (byte)'\r', position);
+
+            int chunkLength = (endPos - position);
+
+            byte[] chunkSizeBytes = new byte[chunkLength];
+
+            Array.Copy(this.Bytes, position, chunkSizeBytes, 0, chunkLength);
+
+            return chunkSizeBytes;
+        }
+
+
+        public void ReplaceHost(string host)
+        {
+            if (host == null)
+                throw new ArgumentNullException(nameof(host));
+
+            int hostStart = this.Bytes.GetEndIndex("Host: ") + 1;
+            int hostEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', hostStart);
+            int hostLength = hostEnd - hostStart;
+
+            byte[] hostBytes = Encoding.ASCII.GetBytes(host);
+
+            byte[] result = this.Bytes.Overwrite(hostStart, hostLength, hostBytes);
+
+            this.Bytes = result;
+        }
+
+        public void ReplaceConnection(string connection)
+        {
+            if (connection == null)
+                throw new ArgumentNullException(nameof(connection));
+
+            int connectionStart = this.Bytes.GetEndIndex("Connection: ") + 1;
+            int connectionEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', connectionStart);
+            int connectionLength = connectionEnd - connectionStart;
+
+            byte[] connectionBytes = Encoding.ASCII.GetBytes(connection);
+
+            byte[] result = this.Bytes.Overwrite(connectionStart, connectionLength, connectionBytes);
+
+            this.Bytes = result;
         }
     }
 }
