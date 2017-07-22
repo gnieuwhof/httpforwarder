@@ -150,7 +150,7 @@
             int contentLength = -1
             )
         {
-            bool readOnce = (contentLength < 1);
+            bool readOnce = (contentLength < 0);
             int bytesReceived = 0;
 
             int byteCount = readOnce ?
@@ -176,7 +176,7 @@
                     webContext.AddBytes(buffer);
                 }
 
-                if (readOnce)
+                if ((count == 0) || readOnce)
                 {
                     break;
                 }
