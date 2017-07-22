@@ -5,6 +5,11 @@
 
     public class WebContext
     {
+        public WebContext()
+        {
+            this.Bytes = new byte[0];
+        }
+
         public WebContext(byte[] firstBatch)
         {
             if (firstBatch == null)
