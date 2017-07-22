@@ -39,7 +39,7 @@
                     using (TcpClient client = listener.AcceptTcpClient())
                     {
                         InfoHandler?.Invoke(this, $"Client connected ({client.Client.RemoteEndPoint}).");
-                        HandleClient2(client);
+                        HandleClient(client);
                     }
                     InfoHandler?.Invoke(this, "Connection closed.");
                 }
@@ -50,57 +50,7 @@
             }
         }
 
-        //private void HandleClient(TcpClient client)
-        //{
-        //    NetworkStream netStream = client.GetStream();
-
-        //    byte[] header = netStream.ReadFromStream(client.ReceiveBufferSize);
-
-        //    var webRequest = new WebRequest(header);
-
-        //    int headerEnd = webRequest.GetHeaderLength();
-
-        //    if (headerEnd == -1)
-        //    {
-        //        InfoHandler?.Invoke(this, "Client connected but no header found.");
-
-        //        return;
-        //    }
-
-        //    int contentLength = webRequest.GetContentLength();
-        //    int totalBytes = contentLength + headerEnd + 1;
-
-        //    if(webRequest.Bytes.Length < totalBytes)
-        //    {
-        //        // We only have the header but there is still content to get.
-        //        do
-        //        {
-        //            byte[] content = netStream.ReadFromStream(client.ReceiveBufferSize, contentLength);
-        //            webRequest.AddBytes(content);
-        //        }
-        //        while (webRequest.Bytes.Length < totalBytes);
-        //    }
-
-        //    webRequest.ReplaceHost(this.url.Host);
-        //    webRequest.ReplaceConnection("close");
-
-        //    RequestHandler?.Invoke(this, webRequest.Bytes);
-
-        //    byte[] serverResponse = SendToServer(webRequest.Bytes);
-
-        //    int byteCount = serverResponse.Length;
-        //    int offset = 0;
-
-        //    while (byteCount > 0)
-        //    {
-        //        int length = Math.Min(byteCount, client.ReceiveBufferSize);
-        //        netStream.Write(serverResponse, offset, length);
-        //        offset += client.ReceiveBufferSize;
-        //        byteCount -= length;
-        //    }
-        //}
-
-        private void HandleClient2(TcpClient client)
+        private void HandleClient(TcpClient client)
         {
             NetworkStream netStream = client.GetStream();
 
@@ -109,7 +59,6 @@
             if (!TryGetHeader(client, netStream, out webRequest))
             {
                 InfoHandler?.Invoke(this, "Client connected but no header found.");
-
                 return;
             }
 
@@ -145,7 +94,7 @@
 
             RequestHandler?.Invoke(this, webRequest.Bytes);
 
-            byte[] serverResponse = SendToServer2(webRequest.Bytes);
+            byte[] serverResponse = SendToServer(webRequest.Bytes);
 
             byteCount = serverResponse.Length;
             int offset = 0;
@@ -159,63 +108,9 @@
             }
         }
 
-        //private byte[] SendToServer(byte[] buffer)
-        //{
-        //    var byteList = new List<byte>();
-        //    byte[] response;
-        //    Stream stream;
-        //    var client = new TcpClient();
-
-        //    client.Connect(this.url.Host, this.url.Port);
-        //    stream = client.GetStream();
-
-        //    if (this.url.Scheme == "https")
-        //    {
-        //        var sslStream = new SslStream(stream);
-        //        sslStream.AuthenticateAsClient(this.url.Host);
-        //        stream = sslStream;
-        //    }
-        //    int byteCount = buffer.Length;
-        //    int offset = 0;
-
-        //    while (byteCount > 0)
-        //    {
-        //        int length = Math.Min(byteCount, client.ReceiveBufferSize);
-        //        stream.Write(buffer, offset, length);
-        //        offset += client.ReceiveBufferSize;
-        //        byteCount -= length;
-        //    }
-
-        //    response = stream.ReadFromStream(client.ReceiveBufferSize);
-
-        //    var webResponse = new WebContext(response);
-
-        //    int headerEnd = webResponse.GetHeaderLength();
-
-        //    if (headerEnd != -1)
-        //    {
-        //        int contentLength = webResponse.GetContentLength();
-        //        int totalBytes = contentLength + headerEnd + 1;
-
-        //        if (response.Length < totalBytes)
-        //        {
-        //            do
-        //            {
-        //                webResponse.AddBytes(stream.ReadFromStream(client.ReceiveBufferSize));
-        //            }
-        //            while (webResponse.Bytes.Length < totalBytes);
-        //        }
-        //    }
-
-        //    ResponseHandler?.Invoke(this, webResponse.Bytes);
-
-        //    return webResponse.Bytes;
-        //}
-
-        private byte[] SendToServer2(byte[] buffer)
+        private byte[] SendToServer(byte[] buffer)
         {
             var byteList = new List<byte>();
-//            byte[] response;
             Stream stream;
             var server = new TcpClient();
 
@@ -239,13 +134,11 @@
                 byteCount -= length;
             }
 
-
             WebContext webContext = null;
 
             if (!TryGetHeader(server, stream, out webContext))
             {
                 InfoHandler?.Invoke(this, "Client connected but no header found.");
-
                 return new byte[0];
             }
 
@@ -258,9 +151,9 @@
                 var t = webContext.GetHeaderLength() + 1;
 
                 // Get chunks
-                for(;;)
+                for (;;)
                 {
-                    if(webContext.Bytes.Length <= t)
+                    if (webContext.Bytes.Length <= t)
                     {
                         // Read more...
                         buffer = new byte[bufferSize];
@@ -280,31 +173,31 @@
                     }
 
                     var chSize = webContext.GetChunkSizeBytes(t);
-                    
+
                     string chStr = Encoding.ASCII.GetString(chSize);
 
                     int schByteCount = Convert.ToInt32(chStr, 16);
 
-                    if(schByteCount == 0)
+                    if (schByteCount == 0)
                     {
-                        if (this.ReadUntilBlankLine(server, stream, webContext, t))
+                        // It could be that the client has some additional header.
+                        // Let's find out...
+                        if (this.ReadUntilBlankLineReceived(server, stream, webContext, t))
                         {
-                            // done
+                            // Addition headers receiver, if any.
                             break;
                         }
                         else
                         {
-                            // We've got all the chunkes but geting the final headers or so failed.
-
+                            // We've got all the chunkes but getting the final headers, or so, failed.
                             ErrorHandler?.Invoke(this, "Receiving the headers after the last chunk failed.");
-
                             ResponseHandler?.Invoke(this, webContext.Bytes);
 
                             return webContext.Bytes;
                         }
                     }
 
-                    while(t + schByteCount + chSize.Length > webContext.Bytes.Length)
+                    while (t + schByteCount + chSize.Length > webContext.Bytes.Length)
                     {
                         buffer = new byte[bufferSize];
                         int count = stream.Read(buffer, 0, bufferSize);
@@ -345,62 +238,82 @@
                 }
             }
 
-
             ResponseHandler?.Invoke(this, webContext.Bytes);
 
-
             return webContext.Bytes;
+        }
 
+        private bool ReadChunked(WebContext webContext, TcpClient client, Stream stream)
+        {
+            int index = webContext.GetHeaderLength() + 1;
+            int bufferSize = client.ReceiveBufferSize;
+            byte[] buffer = new byte[bufferSize];
 
+            // Get chunks
+            for (;;)
+            {
+                if (webContext.Bytes.Length <= index)
+                {
+                    // Read more...
+                    int count = stream.Read(buffer, 0, bufferSize);
 
+                    if (count < bufferSize)
+                    {
+                        byte[] temp = new byte[count];
+                        Array.Copy(buffer, temp, count);
+                        webContext.AddBytes(temp);
+                    }
+                    else
+                    {
+                        webContext.AddBytes(buffer);
+                    }
+                }
 
+                byte[] chunkSizeBytes = webContext.GetChunkSizeBytes(index);
 
+                string chunkSizeString = Encoding.ASCII.GetString(chunkSizeBytes);
 
+                int chunkSize = Convert.ToInt32(chunkSizeString, 16);
 
+                if (chunkSize == 0)
+                {
+                    // It could be that the client has some additional headers for us.
+                    // Let's find out...
+                    if (this.ReadUntilBlankLineReceived(client, stream, webContext, index))
+                    {
+                        // Addition headers receiver, if any.
+                        break;
+                    }
+                    else
+                    {
+                        // We've got all the chunkes but getting the final headers, or so, failed.
+                        ErrorHandler?.Invoke(this, "Receiving the headers after the last chunk failed.");
+                        ResponseHandler?.Invoke(this, webContext.Bytes);
 
+                        return false;
+                    }
+                }
 
+                while ((index + chunkSize + chunkSizeBytes.Length) > webContext.Bytes.Length)
+                {
+                    int count = stream.Read(buffer, 0, bufferSize);
 
+                    if (count < bufferSize)
+                    {
+                        byte[] temp = new byte[count];
+                        Array.Copy(buffer, temp, count);
+                        webContext.AddBytes(temp);
+                    }
+                    else
+                    {
+                        webContext.AddBytes(buffer);
+                    }
+                }
 
+                index = index + chunkSize + chunkSizeBytes.Length + 4;
+            }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            //response = stream.ReadFromStream(client.ReceiveBufferSize);
-
-            //var webResponse = new WebContext(response);
-
-            //int headerEnd = webResponse.GetHeaderLength();
-
-            //if (headerEnd != -1)
-            //{
-            //    int contentLength = webResponse.GetContentLength();
-            //    int totalBytes = contentLength + headerEnd + 1;
-
-            //    if (response.Length < totalBytes)
-            //    {
-            //        do
-            //        {
-            //            webResponse.AddBytes(stream.ReadFromStream(client.ReceiveBufferSize));
-            //        }
-            //        while (webResponse.Bytes.Length < totalBytes);
-            //    }
-            //}
-
-            //ResponseHandler?.Invoke(this, webResponse.Bytes);
-
-            //return webResponse.Bytes;
+            return true;
         }
 
         private bool TryGetHeader(TcpClient client, Stream netStream, out WebContext result)
@@ -412,7 +325,7 @@
             {
                 var buffer = new byte[bufferSize];
                 int count = netStream.Read(buffer, 0, bufferSize);
-                
+
                 if (count == 0)
                 {
                     return false;
@@ -438,7 +351,7 @@
             }
         }
 
-        private bool ReadUntilBlankLine(
+        private bool ReadUntilBlankLineReceived(
             TcpClient client,
             Stream stream,
             WebContext webContext,
