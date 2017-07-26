@@ -62,6 +62,9 @@
                 return;
             }
 
+            webContext.ReplaceHost(this.url.Host);
+            webContext.ReplaceConnection("close");
+
             string transferEncoding = webContext.GetTransferEncoding();
 
             if (transferEncoding?.Contains("chunked") == true)
@@ -81,9 +84,6 @@
                     this.ReadFromStream(netStream, bufferSize, webContext, contentLength);
                 }
             }
-
-            webContext.ReplaceHost(this.url.Host);
-            webContext.ReplaceConnection("close");
 
             RequestHandler?.Invoke(this, webContext.Bytes);
 
