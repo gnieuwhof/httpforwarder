@@ -1,7 +1,6 @@
 ﻿namespace RequestForwarder
 {
     using System;
-    using System.Collections.Generic;
     using System.IO;
     using System.Net;
     using System.Net.Security;
@@ -94,53 +93,52 @@
 
         private byte[] SendToServer(byte[] buffer)
         {
-            var byteList = new List<byte>();
-            Stream stream;
-            var server = new TcpClient();
-
-            server.Connect(this.url.Host, this.url.Port);
-            stream = server.GetStream();
-
-            if (this.url.Scheme == "https")
+            using (var server = new TcpClient())
             {
-                var sslStream = new SslStream(stream);
-                sslStream.AuthenticateAsClient(this.url.Host);
-                stream = sslStream;
-            }
+                server.Connect(this.url.Host, this.url.Port);
+                Stream stream = server.GetStream();
 
-            this.WriteToStream(stream, server.SendBufferSize, buffer);
-
-            WebContext webContext = null;
-            int receiveBufferSize = server.ReceiveBufferSize;
-
-            if (!TryGetHeader(stream, receiveBufferSize, out webContext))
-            {
-                InfoHandler?.Invoke(this, "Client connected but no header found.");
-                return new byte[0];
-            }
-
-            string transferEncoding = webContext.GetTransferEncoding();
-            if (transferEncoding?.Contains("chunked") == true)
-            {
-                bool success = this.ReadChunked(stream, receiveBufferSize, webContext);
-
-                if (!success)
+                if (this.url.Scheme == "https")
                 {
-                    InfoHandler?.Invoke(this, "Receiving headers after the last chunk failed.");
+                    var sslStream = new SslStream(stream);
+                    sslStream.AuthenticateAsClient(this.url.Host);
+                    stream = sslStream;
                 }
-            }
-            else
-            {
-                int contentLength = webContext.GetContentLength();
-                if (contentLength != -1)
+
+                this.WriteToStream(stream, server.SendBufferSize, buffer);
+
+                WebContext webContext = null;
+                int receiveBufferSize = server.ReceiveBufferSize;
+
+                if (!TryGetHeader(stream, receiveBufferSize, out webContext))
                 {
-                    this.ReadFromStream(stream, receiveBufferSize, webContext, contentLength);
+                    InfoHandler?.Invoke(this, "Client connected but no header found.");
+                    return new byte[0];
                 }
+
+                string transferEncoding = webContext.GetTransferEncoding();
+                if (transferEncoding?.Contains("chunked") == true)
+                {
+                    bool success = this.ReadChunked(stream, receiveBufferSize, webContext);
+
+                    if (!success)
+                    {
+                        InfoHandler?.Invoke(this, "Receiving headers after the last chunk failed.");
+                    }
+                }
+                else
+                {
+                    int contentLength = webContext.GetContentLength();
+                    if (contentLength != -1)
+                    {
+                        this.ReadFromStream(stream, receiveBufferSize, webContext, contentLength);
+                    }
+                }
+
+                ResponseHandler?.Invoke(this, webContext.Bytes);
+
+                return webContext.Bytes;
             }
-
-            ResponseHandler?.Invoke(this, webContext.Bytes);
-
-            return webContext.Bytes;
         }
 
         private int ReadFromStream(
