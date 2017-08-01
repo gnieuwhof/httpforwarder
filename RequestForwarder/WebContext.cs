@@ -1,41 +1,43 @@
 ﻿namespace RequestForwarder
 {
     using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Text;
 
     public class WebContext
     {
         public WebContext()
         {
-            this.Bytes = new byte[0];
+            this.Bytes = new List<byte>();
+            this.BC = new BlockingCollection<byte[]>();
         }
 
         public WebContext(byte[] firstBatch)
+            : this()
         {
             if (firstBatch == null)
                 throw new ArgumentNullException(nameof(firstBatch));
 
-            this.Bytes = firstBatch;
+            this.Bytes.AddRange(firstBatch);
         }
 
 
-        public byte[] Bytes
-        {
-            get;
-            protected set;
-        }
+        public List<byte> Bytes { get; }
+        public BlockingCollection<byte[]> BC { get; }
 
 #if DEBUG
         public string Content
         {
             get
             {
-                return Encoding.ASCII.GetString(this.Bytes);
+                return Encoding.ASCII.GetString(this.Bytes.ToArray());
             }
         }
 #endif
 
-        
+
         public int GetHeaderLength()
         {
             // The header end is the first empty line (CRLF CRLF).
@@ -44,16 +46,16 @@
 
         public int GetContentLength()
         {
-            byte[] contentLengthBytes = GetHeaderValue("Content-Length");
+            IList<byte> contentLengthBytes = GetHeaderValue("Content-Length");
 
-            if (contentLengthBytes.Length == 0)
+            if (contentLengthBytes.Count == 0)
             {
                 // Content-Length not found.
                 return -1;
             }
 
-            string contentLengthString = Encoding.ASCII.GetString(contentLengthBytes);
-            
+            string contentLengthString = Encoding.ASCII.GetString(contentLengthBytes.ToArray());
+
             int result;
             if (int.TryParse(contentLengthString, out result))
             {
@@ -65,21 +67,21 @@
 
         public string GetTransferEncoding()
         {
-            byte[] transferEncodingBytes = this.GetHeaderValue("Transfer-Encoding");
+            IList<byte> transferEncodingBytes = this.GetHeaderValue("Transfer-Encoding");
 
-            string result = Encoding.ASCII.GetString(transferEncodingBytes);
+            string result = Encoding.ASCII.GetString(transferEncodingBytes.ToArray());
 
             return result;
         }
 
-        private byte[] GetHeaderValue(string header)
+        private IList<byte> GetHeaderValue(string header)
         {
             header = header.Trim(new[] { ':', ' ' });
             header += ": ";
 
             int headerValueStart = this.Bytes.GetEndIndex(header);
 
-            if(headerValueStart == -1)
+            if (headerValueStart == -1)
             {
                 // Header not found.
                 return new byte[0];
@@ -88,12 +90,10 @@
             // At this point the index points to the space after the double colon so, increase.
             ++headerValueStart;
 
-            int headerValueEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', headerValueStart);
+            int headerValueEnd = this.Bytes.IndexOf((byte)'\r', headerValueStart);
             int headerValueLength = (headerValueEnd - headerValueStart);
 
-            byte[] result = new byte[headerValueLength];
-
-            Array.Copy(this.Bytes, headerValueStart, result, 0, headerValueLength);
+            List<byte> result = this.Bytes.GetRange(headerValueStart, headerValueLength);
 
             return result;
         }
@@ -103,18 +103,17 @@
             if (bytes == null)
                 throw new ArgumentNullException(nameof(bytes));
 
-            this.Bytes = this.Bytes.Append(bytes);
+            this.BC.Add(bytes);
+            this.Bytes.AddRange(bytes);
         }
-            
-        public byte[] GetChunkSizeBytes(int position)
+
+        public IList<byte> GetChunkSizeBytes(int position)
         {
-            int endPos = Array.IndexOf<byte>(this.Bytes, (byte)'\r', position);
+            int endPos = this.Bytes.IndexOf((byte)'\r', position);
 
             int chunkLength = (endPos - position);
 
-            byte[] chunkSizeBytes = new byte[chunkLength];
-
-            Array.Copy(this.Bytes, position, chunkSizeBytes, 0, chunkLength);
+            IList<byte> chunkSizeBytes = this.Bytes.GetRange(position, chunkLength);
 
             return chunkSizeBytes;
         }
@@ -126,14 +125,15 @@
                 throw new ArgumentNullException(nameof(host));
 
             int hostStart = this.Bytes.GetEndIndex("Host: ") + 1;
-            int hostEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', hostStart);
+            int hostEnd = this.Bytes.IndexOf((byte)'\r', hostStart);
             int hostLength = hostEnd - hostStart;
 
             byte[] hostBytes = Encoding.ASCII.GetBytes(host);
 
-            byte[] result = this.Bytes.Overwrite(hostStart, hostLength, hostBytes);
+            IList<byte> result = this.Bytes.Replace(hostStart, hostLength, hostBytes);
 
-            this.Bytes = result;
+            this.Bytes.Clear();
+            this.Bytes.AddRange(result);
         }
 
         public void ReplaceConnection(string connection)
@@ -142,14 +142,15 @@
                 throw new ArgumentNullException(nameof(connection));
 
             int connectionStart = this.Bytes.GetEndIndex("Connection: ") + 1;
-            int connectionEnd = Array.IndexOf<byte>(this.Bytes, (byte)'\r', connectionStart);
+            int connectionEnd = this.Bytes.IndexOf((byte)'\r', connectionStart);
             int connectionLength = connectionEnd - connectionStart;
 
             byte[] connectionBytes = Encoding.ASCII.GetBytes(connection);
 
-            byte[] result = this.Bytes.Overwrite(connectionStart, connectionLength, connectionBytes);
+            IList<byte> result = this.Bytes.Replace(connectionStart, connectionLength, connectionBytes);
 
-            this.Bytes = result;
+            this.Bytes.Clear();
+            this.Bytes.AddRange(result);
         }
     }
 }
