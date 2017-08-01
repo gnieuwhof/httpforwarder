@@ -1,11 +1,12 @@
 ﻿namespace RequestForwarder
 {
     using System;
+    using System.Collections.Generic;
     using System.Text;
 
     public static class Extensions
     {
-        public static int GetEndIndex(this byte[] haystack, string needle, int startIndex = 0)
+        public static int GetEndIndex(this IList<byte> haystack, string needle, int startIndex = 0)
         {
             if (haystack == null)
                 throw new ArgumentNullException(nameof(haystack));
@@ -17,17 +18,17 @@
             return haystack.GetEndIndex(needleBytes, startIndex);
         }
 
-        public static int GetEndIndex(this byte[] haystack, byte[] needle, int startIndex = 0)
+        public static int GetEndIndex(this IList<byte> haystack, byte[] needle, int startIndex = 0)
         {
             if (needle == null)
                 throw new ArgumentNullException(nameof(needle));
             if (haystack == null)
                 throw new ArgumentNullException(nameof(haystack));
 
-            if (needle.Length <= haystack.Length)
+            if (needle.Length <= haystack.Count)
             {
                 int needleIndex = 0;
-                for (int i = startIndex; i < haystack.Length; ++i)
+                for (int i = startIndex; i < haystack.Count; ++i)
                 {
                     if (needle[needleIndex] == haystack[i])
                     {
@@ -50,32 +51,33 @@
             return -1;
         }
 
-        public static byte[] Overwrite(this byte[] bytes, int start, int length, byte[] newBytes)
+        public static T[] Take<T>(this T[] arr, int count)
+        {
+            if (count < arr.Length)
+            {
+                var temp = new T[count];
+                Array.Copy(arr, temp, count);
+                return temp;
+            }
+
+            return arr;
+        }
+
+        public static IList<byte> Replace(this List<byte> bytes, int start, int length, byte[] newBytes)
         {
             if (bytes == null)
                 throw new ArgumentNullException(nameof(bytes));
             if (newBytes == null)
                 throw new ArgumentNullException(nameof(newBytes));
 
-            byte[] result = new byte[bytes.Length - length + newBytes.Length];
+            int newLength = (bytes.Count - length + newBytes.Length);
 
-            Array.Copy(bytes, result, start);
-            Array.Copy(newBytes, 0, result, start, newBytes.Length);
-            Array.Copy(bytes, start + length, result, start + newBytes.Length, bytes.Length - (start + length));
+            var result = new List<byte>(newLength);
+            result.AddRange(bytes.GetRange(0, start));
+            result.AddRange(newBytes);
+            result.AddRange(bytes.GetRange(start + length, bytes.Count - (start + length)));
 
             return result;
-        }
-
-        public static byte[] Append(this byte[] bytes, byte[] values)
-        {
-            if (bytes == null)
-                throw new ArgumentNullException(nameof(bytes));
-            if (values == null)
-                throw new ArgumentNullException(nameof(values));
-
-            // We overwrite 0 bytes starting from bytes.Length
-            // So, we are really only appending.
-            return bytes.Overwrite(bytes.Length, 0, values);
         }
     }
 }
