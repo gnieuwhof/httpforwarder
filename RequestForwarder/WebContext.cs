@@ -1,6 +1,7 @@
 ﻿namespace RequestForwarder
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
@@ -10,18 +11,21 @@
         public WebContext()
         {
             this.Bytes = new List<byte>();
+            this.BC = new BlockingCollection<byte[]>();
         }
 
         public WebContext(byte[] firstBatch)
+            : this()
         {
             if (firstBatch == null)
                 throw new ArgumentNullException(nameof(firstBatch));
 
-            this.Bytes = new List<byte>(firstBatch);
+            this.Bytes.AddRange(firstBatch);
         }
 
 
         public List<byte> Bytes { get; }
+        public BlockingCollection<byte[]> BC { get; }
 
 #if DEBUG
         public string Content
@@ -99,6 +103,7 @@
             if (bytes == null)
                 throw new ArgumentNullException(nameof(bytes));
 
+            this.BC.Add(bytes);
             this.Bytes.AddRange(bytes);
         }
 
