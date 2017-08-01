@@ -2,9 +2,12 @@
 {
     using RequestForwarder;
     using System;
+    using System.Threading.Tasks;
 
     class Program
     {
+        private static volatile bool logging = true;
+
         static void Main(string[] args)
         {
             var startArgs = new StartArgs(args);
@@ -21,6 +24,21 @@
                 Console.ReadKey();
                 return;
             }
+
+            Task.Factory.StartNew(() =>
+            {
+                for(;;)
+                {
+                    ConsoleKeyInfo keyInfo = Console.ReadKey(true);
+
+                    if(keyInfo.Key == ConsoleKey.Spacebar )
+                    {
+                        logging = !logging;
+
+                        HandleError(null, (logging ? "START" : "STOP") + " REQ/RESP LOGGING" );
+                    }
+                }
+            });
 
             var forwarder = new Forwarder(startArgs.URL);
 
@@ -42,11 +60,17 @@
         }
         private static void HandleRequest(object sender, byte[] request)
         {
-            Print.Request(request);
+            if (logging)
+            {
+                Print.Request(request);
+            }
         }
         private static void HandleResponse(object sender, byte[] response)
         {
-            Print.Response(response);
+            if (logging)
+            {
+                Print.Response(response);
+            }
         }
     }
 }
