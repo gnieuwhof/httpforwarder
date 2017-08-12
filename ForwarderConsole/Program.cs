@@ -18,7 +18,7 @@
             {
                 Print.Color("Example:", ConsoleColor.Gray);
                 Print.Color("ForwarderConsole.exe 8080 https://google.com:443", ConsoleColor.Gray);
-                Print.Color("First argument is to port to listen on.", ConsoleColor.Gray);
+                Print.Color("First argument is the port to listen on.", ConsoleColor.Gray);
                 Print.Color("Second argument is the forwarding URL (only scheme, host and port are used).", ConsoleColor.Gray);
                 Print.Color("Press a key to close...", ConsoleColor.Gray);
                 Console.ReadKey();
