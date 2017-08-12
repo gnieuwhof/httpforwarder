@@ -6,6 +6,10 @@
 
     public static class Extensions
     {
+        /// <summary>
+        /// Returns the end position of the first occurrence
+        /// of needle in heystack if it is found, -1 otherwise.
+        /// </summary>
         public static int GetEndIndex(this IList<byte> haystack, string needle, int startIndex = 0)
         {
             if (haystack == null)
@@ -18,6 +22,10 @@
             return haystack.GetEndIndex(needleBytes, startIndex);
         }
 
+        /// <summary>
+        /// Returns the end position of the first occurrence
+        /// of needle in heystack if it is found, -1 otherwise.
+        /// </summary>
         public static int GetEndIndex(this IList<byte> haystack, byte[] needle, int startIndex = 0)
         {
             if (needle == null)
@@ -51,18 +59,30 @@
             return -1;
         }
 
-        public static T[] Take<T>(this T[] arr, int count)
+        /// <summary>
+        /// Returns the specified number of elements.
+        /// Note if count is smaller than the given array a copy is returned,
+        /// otherwise the given array will be returned.
+        /// </summary>
+        public static T[] Take<T>(this T[] array, int count)
         {
-            if (count < arr.Length)
+            if (array == null)
+                throw new ArgumentNullException(nameof(array));
+
+            if (count < array.Length)
             {
                 var temp = new T[count];
-                Array.Copy(arr, temp, count);
+                Array.Copy(array, temp, count);
                 return temp;
             }
 
-            return arr;
+            return array;
         }
 
+        /// <summary>
+        /// Replaces length number of bytes from start with the newBytes.
+        /// Note: The length and the number of newBytes do not need to have the same.
+        /// </summary>
         public static IList<byte> Replace(this List<byte> bytes, int start, int length, byte[] newBytes)
         {
             if (bytes == null)
