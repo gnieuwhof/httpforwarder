@@ -64,7 +64,11 @@
             }
 
             webContext.ReplaceHost(this.url.Host);
-            webContext.ReplaceConnection("close");
+            bool replaced = webContext.ReplaceConnection("close");
+            if(!replaced)
+            {
+                webContext.AddHeader("Connection: close");
+            }
 
             string transferEncoding = webContext.GetTransferEncoding();
 

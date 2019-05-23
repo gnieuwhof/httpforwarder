@@ -136,12 +136,18 @@
             this.Bytes.AddRange(result);
         }
 
-        public void ReplaceConnection(string connection)
+        public bool ReplaceConnection(string connection)
         {
             if (connection == null)
                 throw new ArgumentNullException(nameof(connection));
 
             int connectionStart = this.Bytes.GetEndIndex("Connection: ") + 1;
+
+            if(connectionStart == 0)
+            {
+                return false;
+            }
+
             int connectionEnd = this.Bytes.IndexOf((byte)'\r', connectionStart);
             int connectionLength = connectionEnd - connectionStart;
 
@@ -151,6 +157,22 @@
 
             this.Bytes.Clear();
             this.Bytes.AddRange(result);
+
+            return true;
+        }
+
+        public void AddHeader(string line)
+        {
+            if( line == null )
+                throw new ArgumentNullException( nameof( line ) );
+
+            int headerEnd = this.GetHeaderLength() - 3;
+
+            byte[] newConnection = Encoding.ASCII.GetBytes( $"\r\n{line}" );
+            IList<byte> result = this.Bytes.Replace( headerEnd, 0, newConnection );
+
+            this.Bytes.Clear();
+            this.Bytes.AddRange( result );
         }
     }
 }
