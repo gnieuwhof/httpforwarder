@@ -4,6 +4,7 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Net;
     using System.Text;
 
     public class WebContext
@@ -172,6 +173,83 @@
 
             byte[] newConnection = Encoding.ASCII.GetBytes($"\r\n{line}");
             IList<byte> result = this.Bytes.Replace(headerEnd, 0, newConnection);
+
+            this.Bytes.Clear();
+            this.Bytes.AddRange(result);
+        }
+
+        public void ReplaceIPAddressWithHost(int listeningPort, string schemeAndHost)
+        {
+            int startIndex = this.GetHeaderLength();
+
+            while (true)
+            {
+                int schemaEnd = this.Bytes.GetEndIndex("http://", startIndex);
+
+                if (schemaEnd == -1)
+                {
+                    break;
+                }
+
+                string port = $":{listeningPort}";
+                int portEnd = this.Bytes.GetEndIndex(port, schemaEnd);
+
+                if (portEnd != -1)
+                {
+                    int portStart = (portEnd - port.Length);
+                    int hostLength = (portStart - schemaEnd);
+
+                    int schemaStart = schemaEnd - "http://".Length;
+
+                    int length = portEnd - schemaStart;
+
+                    if ((portStart != -1) &&
+                        (hostLength < "123.123.123.123".Length)
+                        )
+                    {
+                        byte[] hostBytes = this.Bytes
+                            .GetRange(schemaEnd + 1, hostLength)
+                            .ToArray();
+
+                        string host = Encoding.ASCII.GetString(hostBytes);
+
+                        if(IPAddress.TryParse(host, out IPAddress address))
+                        {
+                            hostBytes = Encoding.ASCII.GetBytes(schemeAndHost);
+
+                            IList<byte> result = this.Bytes.Replace(schemaStart + 1, length, hostBytes);
+
+                            this.Bytes.Clear();
+                            this.Bytes.AddRange(result);
+                        }
+                    }
+
+                }
+
+                startIndex = schemaEnd + 1;
+            }
+        }
+
+        public void SetContentLength()
+        {
+            int contentStart = (this.GetHeaderLength() + 1);
+            
+            int length = this.Bytes.Count - contentStart;
+
+
+            int contentLengthStart = this.Bytes.GetEndIndex("Content-Length: ") + 1;
+
+            if (contentLengthStart == 0)
+            {
+                return;
+            }
+
+            int contentLengthEnd = this.Bytes.IndexOf((byte)'\r', contentLengthStart);
+            int contentLegnthLength = contentLengthEnd - contentLengthStart;
+
+            byte[] contentLengthBytes = Encoding.ASCII.GetBytes($"{length}");
+
+            IList<byte> result = this.Bytes.Replace(contentLengthStart, contentLegnthLength, contentLengthBytes);
 
             this.Bytes.Clear();
             this.Bytes.AddRange(result);

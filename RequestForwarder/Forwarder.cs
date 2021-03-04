@@ -13,6 +13,7 @@
     public class Forwarder
     {
         private Uri url;
+        private int listeningPort;
 
         public Forwarder(Uri forwardUrl)
         {
@@ -26,6 +27,7 @@
 
         public void Start(int port)
         {
+            this.listeningPort = port;
             var listener = new TcpListener(IPAddress.Any, port);
 
             InfoHandler?.Invoke(this, $"Start listening for connections on port: {port}.");
@@ -90,6 +92,10 @@
                     this.ReadFromStream(netStream, bufferSize, webContext, contentLength);
                 }
             }
+
+            webContext.ReplaceIPAddressWithHost(this.listeningPort, $"{this.url.Scheme}://{this.url.Host}");
+
+            webContext.SetContentLength();
 
             RequestHandler?.Invoke(this, webContext.Bytes.ToArray());
 
