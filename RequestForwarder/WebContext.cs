@@ -81,7 +81,9 @@
 
             int headerValueStart = this.Bytes.GetEndIndex(header);
 
-            if (headerValueStart == -1)
+            int headerLength = GetHeaderLength();
+
+            if ((headerValueStart > headerLength) || (headerValueStart == -1))
             {
                 // Header not found.
                 return new byte[0];
@@ -143,7 +145,7 @@
 
             int connectionStart = this.Bytes.GetEndIndex("Connection: ") + 1;
 
-            if(connectionStart == 0)
+            if (connectionStart == 0)
             {
                 return false;
             }
@@ -163,16 +165,16 @@
 
         public void AddHeader(string line)
         {
-            if( line == null )
-                throw new ArgumentNullException( nameof( line ) );
+            if (line == null)
+                throw new ArgumentNullException(nameof(line));
 
             int headerEnd = this.GetHeaderLength() - 3;
 
-            byte[] newConnection = Encoding.ASCII.GetBytes( $"\r\n{line}" );
-            IList<byte> result = this.Bytes.Replace( headerEnd, 0, newConnection );
+            byte[] newConnection = Encoding.ASCII.GetBytes($"\r\n{line}");
+            IList<byte> result = this.Bytes.Replace(headerEnd, 0, newConnection);
 
             this.Bytes.Clear();
-            this.Bytes.AddRange( result );
+            this.Bytes.AddRange(result);
         }
     }
 }

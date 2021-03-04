@@ -6,6 +6,7 @@
     using System.Net;
     using System.Net.Security;
     using System.Net.Sockets;
+    using System.Security.Authentication;
     using System.Text;
     using System.Threading.Tasks;
 
@@ -65,7 +66,7 @@
 
             webContext.ReplaceHost(this.url.Host);
             bool replaced = webContext.ReplaceConnection("close");
-            if(!replaced)
+            if (!replaced)
             {
                 webContext.AddHeader("Connection: close");
             }
@@ -105,7 +106,8 @@
                 if (this.url.Scheme == "https")
                 {
                     var sslStream = new SslStream(stream);
-                    sslStream.AuthenticateAsClient(this.url.Host);
+                    sslStream.AuthenticateAsClient(this.url.Host, null, SslProtocols.Tls12, false);
+
                     stream = sslStream;
                 }
 
