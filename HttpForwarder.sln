@@ -1,11 +1,11 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ForwarderConsole", "ForwarderConsole\ForwarderConsole.csproj", "{BBD21512-C9CA-44FA-A175-794FD1DC71E8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ForwarderConsole", "ForwarderConsole\ForwarderConsole.csproj", "{BBD21512-C9CA-44FA-A175-794FD1DC71E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RequestForwarder", "RequestForwarder\RequestForwarder.csproj", "{8F324891-B595-49B9-BDF4-A6D38FFF272B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RequestForwarder", "RequestForwarder\RequestForwarder.csproj", "{8F324891-B595-49B9-BDF4-A6D38FFF272B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
