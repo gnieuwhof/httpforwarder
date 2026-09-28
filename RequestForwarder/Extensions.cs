@@ -10,7 +10,7 @@
         /// Returns the end position of the first occurrence
         /// of needle in heystack if it is found, -1 otherwise.
         /// </summary>
-        public static int GetEndIndex(this IList<byte> haystack, string needle, int startIndex = 0)
+        public static int GetEndIndex(this IList<byte> haystack, string needle, int startIndex = 0, bool ignoreCase = false)
         {
             if (haystack == null)
                 throw new ArgumentNullException(nameof(haystack));
@@ -19,14 +19,14 @@
 
             byte[] needleBytes = Encoding.ASCII.GetBytes(needle);
 
-            return haystack.GetEndIndex(needleBytes, startIndex);
+            return haystack.GetEndIndex(needleBytes, startIndex, ignoreCase);
         }
 
         /// <summary>
         /// Returns the end position of the first occurrence
         /// of needle in heystack if it is found, -1 otherwise.
         /// </summary>
-        public static int GetEndIndex(this IList<byte> haystack, byte[] needle, int startIndex = 0)
+        public static int GetEndIndex(this IList<byte> haystack, byte[] needle, int startIndex = 0, bool ignoreCase = false)
         {
             if (needle == null)
                 throw new ArgumentNullException(nameof(needle));
@@ -38,25 +38,33 @@
                 int needleIndex = 0;
                 for (int i = startIndex; i < haystack.Count; ++i)
                 {
-                    if (needle[needleIndex] == haystack[i])
+                    if (Matches(needle[needleIndex], haystack[i], ignoreCase))
                     {
-                        ++needleIndex;
+                        if (++needleIndex == needle.Length)
+                        {
+                            return i;
+                        }
                     }
-                    else
+                    else if (needleIndex > 0)
                     {
-                        // Reset
+                        // Restart right after the byte where the partial match began.
+                        i -= needleIndex;
                         needleIndex = 0;
-                    }
-
-                    if (needleIndex == needle.Length)
-                    {
-                        // Done
-                        return i;
                     }
                 }
             }
 
             return -1;
+        }
+
+        private static bool Matches(byte a, byte b, bool ignoreCase)
+        {
+            return a == b || (ignoreCase && ToLowerAscii(a) == ToLowerAscii(b));
+        }
+
+        private static byte ToLowerAscii(byte b)
+        {
+            return b is >= (byte)'A' and <= (byte)'Z' ? (byte)(b + 32) : b;
         }
 
         /// <summary>

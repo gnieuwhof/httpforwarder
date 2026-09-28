@@ -75,30 +75,58 @@
             return result;
         }
 
-        private IList<byte> GetHeaderValue(string header)
+        private IList<byte> GetHeaderValue(string name)
         {
-            header = header.Trim(new[] { ':', ' ' });
-            header += ": ";
+            int start = this.GetHeaderValueStart(name);
 
-            int headerValueStart = this.Bytes.GetEndIndex(header);
-
-            int headerLength = GetHeaderLength();
-
-            if ((headerValueStart > headerLength) || (headerValueStart == -1))
+            if (start == -1)
             {
-                // Header not found.
-                return new byte[0];
+                return [];
             }
 
-            // At this point the index points to the space after the double colon so, increase.
-            ++headerValueStart;
+            int end = this.Bytes.IndexOf((byte)'\r', start);
 
-            int headerValueEnd = this.Bytes.IndexOf((byte)'\r', headerValueStart);
-            int headerValueLength = (headerValueEnd - headerValueStart);
+            return this.Bytes.GetRange(start, end - start);
+        }
 
-            List<byte> result = this.Bytes.GetRange(headerValueStart, headerValueLength);
+        // Finds "<name>:" at the start of a header line (case-insensitive)
+        // and returns the index of the first byte of its value, or -1.
+        private int GetHeaderValueStart(string name)
+        {
+            int headerLength = this.GetHeaderLength();
+            int nameEnd = this.Bytes.GetEndIndex($"\r\n{name.Trim(':', ' ')}:", 0, ignoreCase: true);
 
-            return result;
+            if (nameEnd == -1 || nameEnd > headerLength)
+            {
+                return -1;
+            }
+
+            int start = nameEnd + 1;
+
+            while (this.Bytes[start] == (byte)' ')
+            {
+                ++start;
+            }
+
+            return start;
+        }
+
+        private bool ReplaceHeaderValue(string name, string value)
+        {
+            int start = this.GetHeaderValueStart(name);
+
+            if (start == -1)
+            {
+                return false;
+            }
+
+            int end = this.Bytes.IndexOf((byte)'\r', start);
+            IList<byte> result = this.Bytes.Replace(start, end - start, Encoding.ASCII.GetBytes(value));
+
+            this.Bytes.Clear();
+            this.Bytes.AddRange(result);
+
+            return true;
         }
 
         public void AddBytes(byte[] bytes)
@@ -127,16 +155,10 @@
             if (host == null)
                 throw new ArgumentNullException(nameof(host));
 
-            int hostStart = this.Bytes.GetEndIndex("Host: ") + 1;
-            int hostEnd = this.Bytes.IndexOf((byte)'\r', hostStart);
-            int hostLength = hostEnd - hostStart;
-
-            byte[] hostBytes = Encoding.ASCII.GetBytes(host);
-
-            IList<byte> result = this.Bytes.Replace(hostStart, hostLength, hostBytes);
-
-            this.Bytes.Clear();
-            this.Bytes.AddRange(result);
+            if (!this.ReplaceHeaderValue("Host", host))
+            {
+                this.AddHeader($"Host: {host}");
+            }
         }
 
         public bool ReplaceConnection(string connection)
@@ -144,24 +166,7 @@
             if (connection == null)
                 throw new ArgumentNullException(nameof(connection));
 
-            int connectionStart = this.Bytes.GetEndIndex("Connection: ") + 1;
-
-            if (connectionStart == 0)
-            {
-                return false;
-            }
-
-            int connectionEnd = this.Bytes.IndexOf((byte)'\r', connectionStart);
-            int connectionLength = connectionEnd - connectionStart;
-
-            byte[] connectionBytes = Encoding.ASCII.GetBytes(connection);
-
-            IList<byte> result = this.Bytes.Replace(connectionStart, connectionLength, connectionBytes);
-
-            this.Bytes.Clear();
-            this.Bytes.AddRange(result);
-
-            return true;
+            return this.ReplaceHeaderValue("Connection", connection);
         }
 
         public void AddHeader(string line)
@@ -232,27 +237,9 @@
 
         public void SetContentLength()
         {
-            int contentStart = (this.GetHeaderLength() + 1);
-            
-            int length = this.Bytes.Count - contentStart;
+            int length = this.Bytes.Count - (this.GetHeaderLength() + 1);
 
-
-            int contentLengthStart = this.Bytes.GetEndIndex("Content-Length: ") + 1;
-
-            if (contentLengthStart == 0)
-            {
-                return;
-            }
-
-            int contentLengthEnd = this.Bytes.IndexOf((byte)'\r', contentLengthStart);
-            int contentLegnthLength = contentLengthEnd - contentLengthStart;
-
-            byte[] contentLengthBytes = Encoding.ASCII.GetBytes($"{length}");
-
-            IList<byte> result = this.Bytes.Replace(contentLengthStart, contentLegnthLength, contentLengthBytes);
-
-            this.Bytes.Clear();
-            this.Bytes.AddRange(result);
+            this.ReplaceHeaderValue("Content-Length", length.ToString());
         }
     }
 }

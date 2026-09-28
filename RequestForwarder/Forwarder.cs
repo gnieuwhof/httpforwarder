@@ -91,11 +91,11 @@
                 {
                     this.ReadFromStream(netStream, bufferSize, webContext, contentLength);
                 }
+
+                // Rewriting the body would corrupt the chunk sizes of a chunked request.
+                webContext.ReplaceIPAddressWithHost(this.listeningPort, $"{this.url.Scheme}://{this.url.Host}");
+                webContext.SetContentLength();
             }
-
-            webContext.ReplaceIPAddressWithHost(this.listeningPort, $"{this.url.Scheme}://{this.url.Host}");
-
-            webContext.SetContentLength();
 
             RequestHandler?.Invoke(this, webContext.Bytes.ToArray());
 
@@ -112,7 +112,7 @@
                 if (this.url.Scheme == "https")
                 {
                     var sslStream = new SslStream(stream);
-                    sslStream.AuthenticateAsClient(this.url.Host, null, SslProtocols.Tls12, false);
+                    sslStream.AuthenticateAsClient(this.url.Host, null, SslProtocols.None, false);
 
                     stream = sslStream;
                 }
@@ -127,10 +127,9 @@
                     InfoHandler?.Invoke(this, "Client connected but no header found.");
                     return;
                 }
-                
 
                 // Async send to the client as chunks become available.
-                var consumer = Task.Factory.StartNew(() =>
+                var consumer = Task.Run(() =>
                 {
                     foreach (var item in webContext.BC.GetConsumingEnumerable())
                     {
@@ -138,29 +137,39 @@
                     }
                 });
 
-
-                string transferEncoding = webContext.GetTransferEncoding();
-                if (transferEncoding?.Contains("chunked") == true)
+                try
                 {
-                    ReadChunked(stream, server.ReceiveBufferSize, webContext);
-                }
-                else
-                {
-                    int contentLength = webContext.GetContentLength();
-                    if (contentLength != -1)
+                    string transferEncoding = webContext.GetTransferEncoding();
+                    if (transferEncoding?.Contains("chunked") == true)
                     {
-                        ReadFromStream(stream, server.ReceiveBufferSize, webContext, contentLength);
+                        ReadChunked(stream, receiveBufferSize, webContext);
                     }
+                    else
+                    {
+                        int contentLength = webContext.GetContentLength();
+                        if (contentLength != -1)
+                        {
+                            ReadFromStream(stream, receiveBufferSize, webContext, contentLength);
+                        }
+                        else
+                        {
+                            // No length information: the body ends when the server closes.
+                            while (ReadFromStream(stream, receiveBufferSize, webContext) > 0)
+                            {
+                            }
+                        }
+                    }
+
+                    ResponseHandler?.Invoke(this, webContext.Bytes.ToArray());
                 }
-
-                ResponseHandler?.Invoke(this, webContext.Bytes.ToArray());
-
-                webContext.BC.CompleteAdding();
-
-                consumer.Wait();
+                finally
+                {
+                    webContext.BC.CompleteAdding();
+                    consumer.Wait();
+                }
             }
         }
-        
+
         private int ReadFromStream(
             Stream stream,
             int bufferSize,
@@ -205,28 +214,36 @@
             {
                 int length = Math.Min(byteCount, bufferSize);
                 stream.Write(content, offset, length);
-                offset += bufferSize;
+                offset += length;
                 byteCount -= length;
             }
         }
-        
+
         private bool ReadChunked(Stream stream, int bufferSize, WebContext webContext)
         {
             int index = webContext.GetHeaderLength() + 1;
-            byte[] buffer = new byte[bufferSize];
 
             // Get chunks
             for (;;)
             {
-                if (webContext.Bytes.Count == index)
+                // Make sure the complete chunk-size line has been received.
+                while (webContext.Bytes.GetEndIndex("\r\n", index) == -1)
                 {
-                    // Read more...
-                    this.ReadFromStream(stream, bufferSize, webContext);
+                    if (this.ReadFromStream(stream, bufferSize, webContext) == 0)
+                    {
+                        ErrorHandler?.Invoke(this, "Connection closed while reading a chunk size.");
+                        return false;
+                    }
                 }
 
                 byte[] chunkSizeBytes = webContext.GetChunkSizeBytes(index).ToArray();
                 string chunkSizeString = Encoding.ASCII.GetString(chunkSizeBytes);
-                int chunkSize = Convert.ToInt32(chunkSizeString, 16);
+                int extension = chunkSizeString.IndexOf(';');
+                if (extension != -1)
+                {
+                    chunkSizeString = chunkSizeString[..extension];
+                }
+                int chunkSize = Convert.ToInt32(chunkSizeString.Trim(), 16);
 
                 if (chunkSize == 0)
                 {
@@ -249,8 +266,6 @@
                     {
                         // We've got all the chunkes but getting the final headers, or so, failed.
                         ErrorHandler?.Invoke(this, "Receiving the headers after the last chunk failed.");
-                        ResponseHandler?.Invoke(this, webContext.Bytes.ToArray());
-
                         return false;
                     }
                 }
@@ -259,7 +274,11 @@
 
                 while (target > webContext.Bytes.Count)
                 {
-                    this.ReadFromStream(stream, bufferSize, webContext);
+                    if (this.ReadFromStream(stream, bufferSize, webContext) == 0)
+                    {
+                        ErrorHandler?.Invoke(this, "Connection closed before the chunk was complete.");
+                        return false;
+                    }
                 }
 
                 index = target;

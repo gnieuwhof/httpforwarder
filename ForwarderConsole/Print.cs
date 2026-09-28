@@ -18,7 +18,7 @@
 
         public static void Request(byte[] bytes)
         {
-            string request = Encoding.ASCII.GetString(bytes);
+            string request = Encoding.UTF8.GetString(bytes);
 
             InternalPrint("--- REQUEST ---", request, ConsoleColor.White);
         }
@@ -56,7 +56,7 @@
 
         private static string ToReadable(byte[] bytes)
         {
-            string raw = Encoding.ASCII.GetString(bytes);
+            string raw = Encoding.UTF8.GetString(bytes);
 
             int headerEnd = bytes.GetEndIndex(HeaderEnd);
 

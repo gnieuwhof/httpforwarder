@@ -2,7 +2,7 @@
 {
     using RequestForwarder;
     using System;
-    using System.Threading.Tasks;
+    using System.Threading;
 
     class Program
     {
@@ -21,24 +21,37 @@
                 Print.Color("First argument is the port to listen on.", ConsoleColor.Gray);
                 Print.Color("Second argument is the forwarding URL (only scheme, host and port are used).", ConsoleColor.Gray);
                 Print.Color("Press a key to close...", ConsoleColor.Gray);
-                Console.ReadKey();
+
+                if (!Console.IsInputRedirected)
+                {
+                    Console.ReadKey();
+                }
+
                 return;
             }
 
-            Task.Factory.StartNew(() =>
+            if (!Console.IsInputRedirected)
             {
-                for(;;)
+                var keyReader = new Thread(() =>
                 {
-                    ConsoleKeyInfo keyInfo = Console.ReadKey(true);
-
-                    if(keyInfo.Key == ConsoleKey.Spacebar )
+                    for (;;)
                     {
-                        logging = !logging;
+                        ConsoleKeyInfo keyInfo = Console.ReadKey(true);
 
-                        HandleError(null, (logging ? "START" : "STOP") + " REQ/RESP LOGGING" );
+                        if (keyInfo.Key == ConsoleKey.Spacebar)
+                        {
+                            logging = !logging;
+
+                            HandleError(null, (logging ? "START" : "STOP") + " REQ/RESP LOGGING");
+                        }
                     }
-                }
-            });
+                })
+                {
+                    IsBackground = true
+                };
+
+                keyReader.Start();
+            }
 
             var forwarder = new Forwarder(startArgs.URL);
 

@@ -71,7 +71,7 @@
                 }
                 else
                 {
-                    ErrorHandler?.Invoke(null, "Could not parse URL.");
+                    ErrorHandler?.Invoke(null, "Could not parse port.");
                 }
             }
 
